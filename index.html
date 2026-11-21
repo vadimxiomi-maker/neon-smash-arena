@@ -463,7 +463,9 @@
       document.getElementById('touchDashBtn').style.display = 'block';
     }
 
-      function setupJoystick(zoneId, knobId, onMove, onEnd) {
+          let rightStickActive = false;
+
+    function setupJoystick(zoneId, knobId, onMove, onEnd) {
       const zone = document.getElementById(zoneId);
       const knob = document.getElementById(knobId);
       zone.addEventListener('touchstart', e => { e.preventDefault(); handleTouch(e.targetTouches[0]); }, { passive: false });
@@ -490,65 +492,65 @@
       }
     }
 
-        function smoothAngle(cur, target, factor) {
+    function smoothAngle(cur, target, factor) {
       let diff = target - cur;
       while (diff < -Math.PI) diff += Math.PI * 2;
       while (diff > Math.PI) diff -= Math.PI * 2;
       return cur + diff * factor;
     }
 
-    function getAssistedAimAngle(rawAngle) {
+    function getAssistedAimAngle(rawAngle, fullAuto = false) {
       if (!gameState || !myId) return rawAngle;
       const me = gameState.players.find(p => p.id === myId);
       if (!me) return rawAngle;
       let bestAngle = rawAngle;
-      let bestDiff = 0.35; // ~20 градусов конус авто-помощи
+      let bestScore = fullAuto ? 750 : 0.42; // fullAuto ищет ближайшего врага в радиусе 750px
       for (const p of gameState.players) {
         if (p.id === myId || (me.lobbyCode && p.lobbyCode === me.lobbyCode)) continue;
         const dist = Math.hypot(p.x - me.x, p.y - me.y);
-        if (dist > 620) continue;
+        if (dist > 750) continue;
         const angToEnemy = Math.atan2(p.y - me.y, p.x - me.x);
-        let diff = Math.abs(angToEnemy - rawAngle);
-        if (diff > Math.PI) diff = Math.PI * 2 - diff;
-        if (diff < bestDiff) {
-          bestDiff = diff;
-          bestAngle = angToEnemy;
+        if (fullAuto) {
+          if (dist < bestScore) { bestScore = dist; bestAngle = angToEnemy; }
+        } else {
+          let diff = Math.abs(angToEnemy - rawAngle);
+          if (diff > Math.PI) diff = Math.PI * 2 - diff;
+          if (diff < bestScore) { bestScore = diff; bestAngle = angToEnemy; }
         }
       }
       return bestAngle;
     }
 
     setupJoystick('stickLeft', 'knobLeft', (nx, ny) => {
-      input.left = nx < -0.25; input.right = nx > 0.25;
-      input.up = ny < -0.25; input.down = ny > 0.25;
-      if (!input.shooting && Math.hypot(nx, ny) > 0.3) {
-        input.angle = smoothAngle(input.angle, Math.atan2(ny, nx), 0.22);
+      input.left = nx < -0.22; input.right = nx > 0.22;
+      input.up = ny < -0.22; input.down = ny > 0.22;
+      if (!rightStickActive && Math.hypot(nx, ny) > 0.18) {
+        input.angle = smoothAngle(input.angle, Math.atan2(ny, nx), 0.35);
       }
     }, () => { input.up = input.down = input.left = input.right = false; });
 
     setupJoystick('stickRight', 'knobRight', (nx, ny) => {
+      rightStickActive = true;
       const mag = Math.hypot(nx, ny);
-      if (mag > 0.22) {
-        const rawAng = Math.atan2(ny, nx);
-        const assisted = getAssistedAimAngle(rawAng);
-        input.angle = smoothAngle(input.angle, assisted, 0.35);
-        mouse.x = canvas.width / 2 + Math.cos(input.angle) * 140;
-        mouse.y = canvas.height / 2 + Math.sin(input.angle) * 140;
-        if (!input.shooting && myId) {
-          socket.emit('shoot');
-          playLaserZap();
-          clearInterval(laserSoundTimer);
-          laserSoundTimer = setInterval(() => { if (input.shooting && myId) playLaserZap(); }, 180);
-        }
-        input.shooting = true;
-      } else {
-        input.shooting = false;
+      const targetAng = mag > 0.15
+        ? getAssistedAimAngle(Math.atan2(ny, nx), false)
+        : getAssistedAimAngle(input.angle, true);
+      input.angle = smoothAngle(input.angle, targetAng, mag > 0.15 ? 0.45 : 0.75);
+      mouse.x = canvas.width / 2 + Math.cos(input.angle) * 140;
+      mouse.y = canvas.height / 2 + Math.sin(input.angle) * 140;
+      if (!input.shooting && myId) {
+        socket.emit('shoot');
+        playLaserZap();
         clearInterval(laserSoundTimer);
+        laserSoundTimer = setInterval(() => { if (input.shooting && myId) playLaserZap(); }, 180);
       }
+      input.shooting = true;
     }, () => {
+      rightStickActive = false;
       input.shooting = false;
       clearInterval(laserSoundTimer);
     });
+
 
 
     document.getElementById('touchDashBtn').addEventListener('touchstart', e => {
