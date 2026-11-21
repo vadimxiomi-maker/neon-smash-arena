@@ -579,7 +579,7 @@
       if (myId) { socket.emit('dash'); playTone(520, 0.14, 'triangle', 0.08); }
     });
 
-    setInterval(() => { if (myId) socket.emit('input', input); }, 1000 / 60);
+    setInterval(() => { if (myId) socket.emit('input', input); }, 1000 / 30);
     let currentLobbyCode = null;
 
     function openLobbyWindow(code, hostId, members) {
@@ -865,43 +865,51 @@
           screenShake *= 0.85;
         }
 
-               const camScale = Math.min(1, Math.max(0.55, Math.min(canvas.width / 1280, canvas.height / 720)));
+                             const camScale = isTouchDevice
+          ? Math.min(1, Math.max(0.55, Math.min(canvas.width / 1280, canvas.height / 720)))
+          : 1;
 
         ctx.save();
-        ctx.translate(canvas.width / 2 + shakeX, canvas.height / 2 + shakeY);
-        ctx.scale(camScale, camScale);
-        ctx.translate(-me.x, -me.y);
-
+        if (camScale !== 1) {
+          ctx.translate(canvas.width / 2 + shakeX, canvas.height / 2 + shakeY);
+          ctx.scale(camScale, camScale);
+          ctx.translate(-me.x, -me.y);
+        } else {
+          ctx.translate(canvas.width / 2 - me.x + shakeX, canvas.height / 2 - me.y + shakeY);
+        }
 
         ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
         ctx.lineWidth = 1;
+        ctx.beginPath();
         for (let x = 0; x <= gameState.arenaSize; x += 80) {
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, gameState.arenaSize); ctx.stroke();
+          ctx.moveTo(x, 0); ctx.lineTo(x, gameState.arenaSize);
         }
         for (let y = 0; y <= gameState.arenaSize; y += 80) {
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(gameState.arenaSize, y); ctx.stroke();
+          ctx.moveTo(0, y); ctx.lineTo(gameState.arenaSize, y);
         }
+        ctx.stroke();
 
+        const zoneColor = gameState.mode === 'royale' ? '#facc15' : '#ff2a85';
         ctx.beginPath();
         ctx.arc(gameState.safeZone.x, gameState.safeZone.y, gameState.safeZone.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = gameState.mode === 'royale' ? '#facc15' : '#ff2a85';
+        ctx.strokeStyle = zoneColor;
         ctx.lineWidth = 5;
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = gameState.mode === 'royale' ? '#facc15' : '#ff2a85';
         ctx.stroke();
-        ctx.shadowBlur = 0;
 
         (gameState.obstacles || []).forEach(ob => {
           ctx.beginPath();
-          ctx.arc(ob.x, ob.y, ob.r, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-          ctx.fill();
-          ctx.lineWidth = 4;
-          ctx.strokeStyle = '#00f0ff';
-          ctx.shadowBlur = 16;
-          ctx.shadowColor = '#00f0ff';
+          ctx.arc(ob.x, ob.y, ob.r + 4, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(0, 240, 255, 0.18)';
+          ctx.lineWidth = 8;
           ctx.stroke();
-          ctx.shadowBlur = 0;
+
+          ctx.beginPath();
+          ctx.arc(ob.x, ob.y, ob.r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+          ctx.fill();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = '#00f0ff';
+          ctx.stroke();
         });
 
         gameState.powerups.forEach(pw => {
@@ -912,10 +920,7 @@
           ctx.beginPath();
           ctx.arc(pw.x, pw.y, isGift ? 22 : 17, 0, Math.PI * 2);
           ctx.fillStyle = bg;
-          ctx.shadowBlur = isGift ? 25 : 14;
-          ctx.shadowColor = bg;
           ctx.fill();
-          ctx.shadowBlur = 0;
 
           ctx.fillStyle = pw.type === 'triple' ? '#050816' : '#ffffff';
           ctx.font = isGift ? 'bold 20px sans-serif' : 'bold 15px sans-serif';
@@ -928,27 +933,25 @@
           ctx.save();
           ctx.translate(pl.x, pl.y);
           if (pl.vx < 0) ctx.scale(-1, 1);
-          ctx.fillStyle = 'rgba(250, 204, 21, 0.9)';
-          ctx.shadowBlur = 25;
-          ctx.shadowColor = '#facc15';
+          ctx.fillStyle = 'rgba(250, 204, 21, 0.92)';
           ctx.beginPath();
           ctx.moveTo(55, 0); ctx.lineTo(-40, -45); ctx.lineTo(-20, 0); ctx.lineTo(-40, 45);
           ctx.closePath();
           ctx.fill();
-          ctx.shadowBlur = 0;
           ctx.restore();
         }
 
         gameState.bullets.forEach(b => {
           ctx.beginPath();
-          ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
-          ctx.fillStyle = b.color;
-          ctx.shadowBlur = 12;
-          ctx.shadowColor = b.color;
+          ctx.arc(b.x, b.y, 9, 0, Math.PI * 2);
+          ctx.fillStyle = b.color + '33';
           ctx.fill();
-          ctx.shadowBlur = 0;
-        });
 
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, 5.5, 0, Math.PI * 2);
+          ctx.fillStyle = b.color;
+          ctx.fill();
+        });
         for (let i = particles.length - 1; i >= 0; i--) {
           const pt = particles[i];
           pt.x += pt.vx; pt.y += pt.vy; pt.life--;
