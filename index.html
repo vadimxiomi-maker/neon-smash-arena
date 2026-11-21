@@ -531,10 +531,31 @@
       }
     }, () => { input.up = input.down = input.left = input.right = false; });
 
+        function getSmartAimAngle(stickAngle) {
+      if (!gameState || !myId) return stickAngle;
+      const me = gameState.players.find(p => p.id === myId);
+      if (!me) return stickAngle;
+      let bestAngle = stickAngle;
+      let bestDiff = 0.45; // ~26 градусов сектор захвата цели
+      for (const p of gameState.players) {
+        if (p.id === myId || (me.lobbyCode && p.lobbyCode === me.lobbyCode)) continue;
+        const dist = Math.hypot(p.x - me.x, p.y - me.y);
+        if (dist > 780) continue;
+        const angToEnemy = Math.atan2(p.y - me.y, p.x - me.x);
+        let diff = Math.abs(angToEnemy - stickAngle);
+        if (diff > Math.PI) diff = Math.PI * 2 - diff;
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestAngle = angToEnemy;
+        }
+      }
+      return bestAngle;
+    }
+
     setupJoystick('stickRight', 'knobRight', (nx, ny) => {
       rightStickActive = true;
       const mag = Math.hypot(nx, ny);
-      input.angle = mag > 0.12 ? Math.atan2(ny, nx) : getNearestEnemyAngle(input.angle);
+      input.angle = mag > 0.12 ? getSmartAimAngle(Math.atan2(ny, nx)) : getNearestEnemyAngle(input.angle);
       mouse.x = canvas.width / 2 + Math.cos(input.angle) * 140;
       mouse.y = canvas.height / 2 + Math.sin(input.angle) * 140;
       if (!input.shooting && myId) {

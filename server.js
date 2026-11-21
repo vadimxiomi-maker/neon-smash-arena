@@ -699,8 +699,13 @@ io.on('connection', (socket) => {
       socket.leave(socket.data.mode);
     }
 
-    const needRoyaleReset = selectedMode === 'royale' && (getHumanCount(w) === 0 || !w.royaleStarted || w.players.size <= 1);
-    if (needRoyaleReset) resetWorld(w);
+       w.players.delete(socket.id);
+    const humansNow = getHumanCount(w);
+    const needRoyaleReset = selectedMode === 'royale' && (humansNow === 0 || !w.royaleStarted || w.players.size <= 1);
+    if (needRoyaleReset) {
+      w.players.clear();
+      resetWorld(w);
+    }
 
     const p = createPlayer(w, socket.id, cleanName, color, hull, false);
     w.players.set(socket.id, p);
@@ -709,6 +714,7 @@ io.on('connection', (socket) => {
       maintainPopulation(w);
       w.royaleStarted = true;
     }
+
     socket.emit('spawned', { id: socket.id, mode: selectedMode });
 
   });
