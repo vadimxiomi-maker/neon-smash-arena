@@ -463,16 +463,18 @@
       document.getElementById('touchDashBtn').style.display = 'block';
     }
 
-    function setupJoystick(zoneId, knobId, onMove, onEnd) {
+      function setupJoystick(zoneId, knobId, onMove, onEnd) {
       const zone = document.getElementById(zoneId);
       const knob = document.getElementById(knobId);
-      zone.addEventListener('touchstart', e => { e.preventDefault(); handleTouch(e.targetTouches); }, { passive: false });
-      zone.addEventListener('touchmove', e => { e.preventDefault(); handleTouch(e.targetTouches); }, { passive: false });
-      zone.addEventListener('touchend', e => {
+      zone.addEventListener('touchstart', e => { e.preventDefault(); handleTouch(e.targetTouches[0]); }, { passive: false });
+      zone.addEventListener('touchmove', e => { e.preventDefault(); handleTouch(e.targetTouches[0]); }, { passive: false });
+      const resetTouch = e => {
         e.preventDefault();
         knob.style.transform = 'translate(0px, 0px)';
         onEnd();
-      });
+      };
+      zone.addEventListener('touchend', resetTouch, { passive: false });
+      zone.addEventListener('touchcancel', resetTouch, { passive: false });
       function handleTouch(t) {
         if (!t) return;
         const rect = zone.getBoundingClientRect();
@@ -498,9 +500,19 @@
         input.angle = Math.atan2(ny, nx);
         mouse.x = canvas.width / 2 + Math.cos(input.angle) * 140;
         mouse.y = canvas.height / 2 + Math.sin(input.angle) * 140;
+        if (!input.shooting && myId) {
+          socket.emit('shoot');
+          playLaserZap();
+          clearInterval(laserSoundTimer);
+          laserSoundTimer = setInterval(() => { if (input.shooting && myId) playLaserZap(); }, 180);
+        }
         input.shooting = true;
       }
-    }, () => { input.shooting = false; });
+    }, () => {
+      input.shooting = false;
+      clearInterval(laserSoundTimer);
+    });
+
 
     document.getElementById('touchDashBtn').addEventListener('touchstart', e => {
       e.preventDefault();
