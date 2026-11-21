@@ -490,14 +490,48 @@
       }
     }
 
+        function smoothAngle(cur, target, factor) {
+      let diff = target - cur;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      return cur + diff * factor;
+    }
+
+    function getAssistedAimAngle(rawAngle) {
+      if (!gameState || !myId) return rawAngle;
+      const me = gameState.players.find(p => p.id === myId);
+      if (!me) return rawAngle;
+      let bestAngle = rawAngle;
+      let bestDiff = 0.35; // ~20 градусов конус авто-помощи
+      for (const p of gameState.players) {
+        if (p.id === myId || (me.lobbyCode && p.lobbyCode === me.lobbyCode)) continue;
+        const dist = Math.hypot(p.x - me.x, p.y - me.y);
+        if (dist > 620) continue;
+        const angToEnemy = Math.atan2(p.y - me.y, p.x - me.x);
+        let diff = Math.abs(angToEnemy - rawAngle);
+        if (diff > Math.PI) diff = Math.PI * 2 - diff;
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestAngle = angToEnemy;
+        }
+      }
+      return bestAngle;
+    }
+
     setupJoystick('stickLeft', 'knobLeft', (nx, ny) => {
       input.left = nx < -0.25; input.right = nx > 0.25;
       input.up = ny < -0.25; input.down = ny > 0.25;
+      if (!input.shooting && Math.hypot(nx, ny) > 0.3) {
+        input.angle = smoothAngle(input.angle, Math.atan2(ny, nx), 0.22);
+      }
     }, () => { input.up = input.down = input.left = input.right = false; });
 
     setupJoystick('stickRight', 'knobRight', (nx, ny) => {
-      if (Math.hypot(nx, ny) > 0.15) {
-        input.angle = Math.atan2(ny, nx);
+      const mag = Math.hypot(nx, ny);
+      if (mag > 0.22) {
+        const rawAng = Math.atan2(ny, nx);
+        const assisted = getAssistedAimAngle(rawAng);
+        input.angle = smoothAngle(input.angle, assisted, 0.35);
         mouse.x = canvas.width / 2 + Math.cos(input.angle) * 140;
         mouse.y = canvas.height / 2 + Math.sin(input.angle) * 140;
         if (!input.shooting && myId) {
@@ -507,6 +541,9 @@
           laserSoundTimer = setInterval(() => { if (input.shooting && myId) playLaserZap(); }, 180);
         }
         input.shooting = true;
+      } else {
+        input.shooting = false;
+        clearInterval(laserSoundTimer);
       }
     }, () => {
       input.shooting = false;
@@ -805,11 +842,13 @@
           screenShake *= 0.85;
         }
 
-        const camX = canvas.width / 2 - me.x + shakeX;
-        const camY = canvas.height / 2 - me.y + shakeY;
+               const camScale = Math.min(1, Math.max(0.55, Math.min(canvas.width / 1280, canvas.height / 720)));
 
         ctx.save();
-        ctx.translate(camX, camY);
+        ctx.translate(canvas.width / 2 + shakeX, canvas.height / 2 + shakeY);
+        ctx.scale(camScale, camScale);
+        ctx.translate(-me.x, -me.y);
+
 
         ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
         ctx.lineWidth = 1;
