@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>NEON SMASH ARENA</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Roboto, Inter, sans-serif; }
+    body { background: #060812; color: #fff; overflow: hidden; width: 100vw; height: 100vh; touch-action: none; }
+    canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+
+    .overlay {
+      position: fixed; inset: 0; background: rgba(5, 8, 22, 0.88);
+      backdrop-filter: blur(12px); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 20; padding: 16px; overflow-y: auto;
+    }
+    .hidden { display: none !important; }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.8rem); font-weight: 900; letter-spacing: 3px; text-align: center;
+      background: linear-gradient(90deg, #00f0ff, #a855f7, #ff2a85);
+      background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 35px rgba(0, 240, 255, 0.35); margin-bottom: 6px;
+    }
+    .subtitle { color: #94a3b8; font-size: 0.95rem; margin-bottom: 18px; text-align: center; }
+
+    .lobby-grid { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; max-width: 920px; width: 100%; }
+    .panel {
+      background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(0, 240, 255, 0.28);
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.12); border-radius: 18px;
+      padding: 20px; flex: 1; min-width: 280px; max-width: 440px;
+    }
+    .panel h3 { color: #00f0ff; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+    input {
+      width: 100%; padding: 11px 14px; border-radius: 10px; border: 1px solid #334155;
+      background: #090d16; color: #fff; font-size: 1rem; outline: none; margin-bottom: 14px;
+    }
+    input:focus { border-color: #00f0ff; }
+
+    .colors { display: flex; justify-content: space-between; margin-bottom: 14px; gap: 6px; }
+    .color-dot { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: 0.2s; }
+    .color-dot.active { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 14px currentColor; }
+
+    .hulls { display: flex; gap: 8px; margin-bottom: 14px; }
+    .hull-btn {
+      flex: 1; padding: 9px 4px; border-radius: 10px; border: 1px solid #334155;
+      background: #0b1120; color: #cbd5e1; cursor: pointer; font-weight: bold; font-size: 0.85rem; transition: 0.2s;
+    }
+    .hull-btn.active { border-color: #00f0ff; background: rgba(0, 240, 255, 0.15); color: #fff; }
+    .hull-sub { font-size: 0.7rem; color: #00f0ff; font-weight: normal; display: block; margin-top: 2px; }
+
+    .mode-card {
+      background: rgba(9, 13, 22, 0.9); border: 1px solid #334155; border-radius: 12px;
+      padding: 12px 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s;
+    }
+    .mode-card.active-mode { border-color: #00f0ff; background: rgba(0, 240, 255, 0.1); }
+    .mode-card:hover { transform: translateY(-2px); }
+    .mode-title { font-weight: bold; font-size: 0.95rem; }
+    .mode-desc { font-size: 0.78rem; color: #94a3b8; margin-top: 2px; }
+    .badge { padding: 4px 9px; border-radius: 20px; font-size: 0.72rem; font-weight: bold; }
+    .badge-live { background: #22c55e; color: #050816; }
+
+    .btn-play {
+      width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 1.08rem;
+      font-weight: 900; letter-spacing: 1px; cursor: pointer; color: #050816;
+      background: linear-gradient(90deg, #00f0ff, #3b82f6); box-shadow: 0 0 25px rgba(0, 240, 255, 0.45);
+    }
+
+    .hud-top-left {
+      position: fixed; top: 14px; left: 14px; background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 12px; padding: 10px 14px;
+      min-width: 190px; pointer-events: none; z-index: 10; font-size: 0.85rem;
+    }
+    .hud-top-left h4 { color: #facc15; margin-bottom: 6px; font-size: 0.8rem; }
+    .lb-row { display: flex; justify-content: space-between; margin-bottom: 3px; font-weight: 600; }
+
+    .hud-top-center {
+      position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 42, 133, 0.45);
+      border-radius: 20px; padding: 7px 18px; font-weight: bold; font-size: 0.85rem;
+      pointer-events: none; z-index: 10; white-space: nowrap;
+    }
+
+    .hud-top-right { position: fixed; top: 14px; right: 14px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; z-index: 15; }
+    .music-btn {
+      background: rgba(15, 23, 42, 0.85); border: 1px solid #00f0ff; color: #00f0ff;
+      padding: 7px 12px; border-radius: 18px; cursor: pointer; font-weight: bold; font-size: 0.8rem;
+    }
+    .kill-msg { background: rgba(15, 23, 42, 0.85); border-left: 3px solid #ff2a85; padding: 5px 10px; border-radius: 6px; font-size: 0.8rem; pointer-events: none; }
+
+    .hud-bottom {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 24px; padding: 9px 22px; display: flex; gap: 18px; align-items: center;
+      pointer-events: none; z-index: 10; font-weight: bold; font-size: 0.9rem; white-space: nowrap;
+    }
+
+    .touch-zone { position: fixed; bottom: 75px; width: 130px; height: 130px; border-radius: 50%; background: rgba(0,240,255,0.08); border: 2px solid rgba(0,240,255,0.35); z-index: 14; display: none; }
+    #stickLeft { left: 24px; }
+    #stickRight { right: 24px; border-color: rgba(255,42,133,0.45); background: rgba(255,42,133,0.08); }
+    .stick-knob { position: absolute; width: 48px; height: 48px; border-radius: 50%; background: rgba(0,240,255,0.6); top: 39px; left: 39px; pointer-events: none; }
+    #knobRight { background: rgba(255,42,133,0.65); }
+    #touchDashBtn { position: fixed; bottom: 220px; right: 34px; width: 64px; height: 64px; border-radius: 50%; background: rgba(250,204,21,0.2); border: 2px solid #facc15; color: #facc15; font-weight: 900; font-size: 1.3rem; z-index: 14; display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <div class="hud-top-left" id="hudLeaderboard" style="display:none;">
+    <h4>🏆 ТОП АРЕНЫ</h4>
+    <div id="lbList"></div>
+  </div>
+
+  <div class="hud-top-center" id="hudZone" style="display:none;">
+    🔮 <span id="zoneStatusText" style="color:#00f0ff;">ДО ПУЛЬСА ЗОНЫ</span>: <span id="zoneTimerText">30</span>с
+  </div>
+
+  <div class="hud-top-right">
+    <button class="music-btn" onclick="toggleFullscreen()">⛶ Во весь экран</button>
+    <button class="music-btn" id="musicBtn" onclick="toggleMusic()">🔇 Саундтрек: ВЫКЛ</button>
+    <button class="music-btn" id="exitMatchBtn" style="display:none; border-color:#ff2a85; color:#ff2a85;" onclick="exitActiveMatch()">🚪 Выйти в меню</button>
+    <div id="killFeed"></div>
+  </div>
+
+  <div class="hud-bottom" id="hudBottom" style="display:none;">
+    <span id="hudHp" style="color:#22c55e;">❤️ 100 HP</span>
+    <span>|</span>
+    <span id="hudDash" style="color:#00f0ff;">⚡ РЫВОК ГОТОВ</span>
+    <span>|</span>
+    <span id="hudKills" style="color:#ff2a85;">💀 0 КИЛЛОВ</span>
+  </div>
+
+  <div id="stickLeft" class="touch-zone"><div id="knobLeft" class="stick-knob"></div></div>
+  <div id="stickRight" class="touch-zone"><div id="knobRight" class="stick-knob"></div></div>
+  <button id="touchDashBtn">⚡</button>
+
+  <div id="achToast" style="position:fixed; bottom:75px; right:18px; background:linear-gradient(135deg,#facc15,#fb923c); color:#050816; padding:11px 18px; border-radius:14px; font-weight:900; box-shadow:0 0 25px rgba(250,204,21,0.6); z-index:40; display:none;"></div>
+
+  <div class="overlay" id="startOverlay">
+    <h1>NEON SMASH ARENA</h1>
+    <p class="subtitle">Настрой своего кибер-бойца и выбери режим игры</p>
+
+    <div class="lobby-grid">
+      <div class="panel">
+        <h3>👤 Профиль бойца</h3>
+        <input id="nameInput" type="text" maxlength="14" placeholder="Твой позывной..." />
+
+        <div style="font-size:0.82rem; color:#94a3b8; margin-bottom:6px;">Цвет неона:</div>
+        <div class="colors" id="colorPicker">
+          <div class="color-dot active" data-color="#00f0ff" style="background:#00f0ff; color:#00f0ff;"></div>
+          <div class="color-dot" data-color="#ff2a85" style="background:#ff2a85; color:#ff2a85;"></div>
+          <div class="color-dot" data-color="#a855f7" style="background:#a855f7; color:#a855f7;"></div>
+          <div class="color-dot" data-color="#22c55e" style="background:#22c55e; color:#22c55e;"></div>
+          <div class="color-dot" data-color="#facc15" style="background:#facc15; color:#facc15;"></div>
+          <div class="color-dot" data-color="#fb923c" style="background:#fb923c; color:#fb923c;"></div>
+        </div>
+
+        <div style="font-size:0.82rem; color:#94a3b8; margin-bottom:6px;">Корпус дрона:</div>
+        <div class="hulls" id="hullPicker">
+          <button class="hull-btn active" data-hull="circle">⚪ Сфера<span class="hull-sub">Баланс • 100 HP</span></button>
+          <button class="hull-btn" data-hull="hex">🛡️ Танк<span class="hull-sub">140 HP • Мощь</span></button>
+          <button class="hull-btn" data-hull="triangle">🚀 Истребитель<span class="hull-sub">Скорость • Темп</span></button>
+        </div>
+
+        <div style="background:rgba(9,13,22,0.85); border:1px solid #334155; border-radius:12px; padding:10px 12px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:4px;">
+            <span id="playerRank" style="color:#facc15; font-weight:bold;">🎖️ Уровень 1 • Новичок</span>
+            <span id="playerXpText" style="color:#00f0ff; font-weight:bold;">0 / 100 XP</span>
+          </div>
+          <div style="width:100%; height:6px; background:#1e293b; border-radius:4px; overflow:hidden;">
+            <div id="playerXpBar" style="width:0%; height:100%; background:linear-gradient(90deg,#00f0ff,#a855f7);"></div>
+          </div>
+          <div id="playerRecords" style="font-size:0.75rem; color:#94a3b8; margin-top:6px;">💀 Всего киллов: 0 • 🏆 Рекорд за бой: 0</div>
+          <div id="achContainer" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:8px;"></div>
+        </div>
+
+        <div style="font-size:0.76rem; color:#64748b; text-align:center;">
+          ПК: WASD + ЛКМ + Пробел | Телефон: сенсорные стики
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>🎮 Выбор режима</h3>
+        <div class="mode-card active-mode" onclick="joinArena('arena')">
+          <div>
+            <div class="mode-title">⚔️ Арена: Махач</div>
+            <div class="mode-desc">Бесконечный замес • Укрытия • Груз с истребителя</div>
+          </div>
+          <span class="badge badge-live">ИГРАТЬ</span>
+        </div>
+
+        <div class="mode-card" style="border-color:rgba(250,204,21,0.55);" onclick="joinArena('royale')">
+          <div>
+            <div class="mode-title" style="color:#facc15;">🏆 Королевская битва (3 жизни)</div>
+            <div class="mode-desc">8 бойцов • Смертельное кольцо • Подиум 1–3 места</div>
+          </div>
+          <span class="badge badge-live" style="background:#facc15;">ТУРНИР</span>
+        </div>
+
+        <div style="background:rgba(9,13,22,0.9); border:1px solid rgba(168,85,247,0.5); border-radius:12px; padding:12px; margin-bottom:10px;">
+          <div style="font-weight:bold; font-size:0.9rem; color:#a855f7; margin-bottom:8px;">👥 Играть с друзьями (Лобби)</div>
+          <div style="display:flex; gap:6px; margin-bottom:6px;">
+            <button id="createRoomBtn" type="button" class="hull-btn" style="border-color:#a855f7; color:#fff;">➕ Создать комнату</button>
+
+          </div>
+          <div style="display:flex; gap:6px;">
+            <input id="roomCodeInput" type="text" maxlength="4" placeholder="Код (4 цифры)" style="margin:0; padding:8px 10px; font-size:0.9rem; flex:1;" />
+            <button id="joinRoomBtn" type="button" class="hull-btn" style="max-width:105px; border-color:#00f0ff; color:#00f0ff;">Войти</button>
+
+          </div>
+        </div>
+
+        <button class="btn-play" onclick="joinArena('arena')" style="margin-top:4px;">🔥 ВОРВАТЬСЯ НА АРЕНУ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="lobbyOverlay">
+    <div class="panel" style="max-width:460px; width:100%; text-align:center;">
+      <h3 style="color:#a855f7; font-size:1.2rem; margin-bottom:6px;">👥 ПРИВАТНАЯ КОМНАТА #<span id="lobbyCodeDisplay">0000</span></h3>
+      <p style="font-size:0.82rem; color:#94a3b8; margin-bottom:12px;">Скинь ссылку друзьям — когда все зайдут, запускай бой!</p>
+            <button id="copyInviteBtn" type="button" class="hull-btn" style="width:100%; margin-bottom:14px; border-color:#22c55e; color:#22c55e; padding:10px;">📋 СКОПИРОВАТЬ ССЫЛКУ-ПРИГЛАШЕНИЕ</button>
+
+      <div id="lobbyMembersList" style="background:#090d16; border:1px solid #334155; border-radius:12px; padding:10px; margin-bottom:14px; text-align:left; min-height:90px;"></div>
+
+      <div id="lobbyHostControls" style="display:none; flex-direction:column; gap:8px;">
+        <button id="startLobbyArenaBtn" type="button" class="btn-play">⚔️ СТАРТ: АРЕНА МАХАЧ</button>
+        <button id="startLobbyRoyaleBtn" type="button" class="btn-play" style="background:linear-gradient(90deg,#facc15,#fb923c);">🏆 СТАРТ: КОРОЛЕВСКАЯ БИТВА (3 ЖИЗНИ)</button>
+      </div>
+      <div id="lobbyWaitText" style="color:#facc15; font-size:0.88rem; margin-bottom:10px;">⏳ Ожидаем, пока создатель комнаты запустит бой...</div>
+
+      <button id="leaveLobbyBtn" type="button" class="hull-btn" style="width:100%; margin-top:8px;">🚪 Покинуть комнату</button>
+
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="deathOverlay">
+    <h2 style="font-size:2.4rem; color:#ff2a85; margin-bottom:10px;">ТЕБЯ ВЫБИЛИ!</h2>
+    <p id="deathStats" style="color:#cbd5e1; margin-bottom:22px; font-size:1.05rem; text-align:center; max-width:650px;"></p>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+      <button class="btn-play" style="max-width:220px;" onclick="joinArena()">⚡ СНОВА В БОЙ</button>
+      <button class="btn-play" style="max-width:220px; background:linear-gradient(90deg,#334155,#1e293b); color:#fff; box-shadow:none; border:1px solid #475569;" onclick="backToMenu()">🏠 В ГЛАВНОЕ МЕНЮ</button>
+    </div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let myId = null;
+    let gameState = null;
+    let selectedColor = '#00f0ff';
+    let selectedHull = 'circle';
+    let particles = [];
+    let screenShake = 0;
+    let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    let isFreshSession = true;
+    let currentMode = 'arena';
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function toggleFullscreen() {
+      document.exitPointerLock?.();
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      } else {
+        document.exitFullscreen?.().catch(() => {});
+      }
+      setTimeout(resize, 100);
+    }
+
+    let audioCtx = null;
+    let musicOn = false;
+    let musicTimer = null;
+    let laserSoundTimer = null;
+
+    function playTone(freq, dur, type = 'sine', vol = 0.08) {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + dur);
+    }
+
+    function playLaserZap() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(920, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(160, audioCtx.currentTime + 0.09);
+      gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.09);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.09);
+    }
+
+    function toggleMusic() {
+      musicOn = !musicOn;
+      document.getElementById('musicBtn').textContent = musicOn ? '🔊 Саундтрек: ВКЛ' : '🔇 Саундтрек: ВЫКЛ';
+      if (musicOn) {
+        const notes = [110, 110, 130.8, 146.8, 110, 110, 164.8, 146.8];
+        let step = 0;
+        musicTimer = setInterval(() => {
+          playTone(notes[step % notes.length], 0.18, 'sawtooth', 0.045);
+          step++;
+        }, 220);
+      } else {
+        clearInterval(musicTimer);
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && musicOn) toggleMusic();
+    });
+
+    const ACHIEVEMENTS = [
+      { id: 'first_blood', icon: '🩸', name: 'Первая кровь' },
+      { id: 'rampage_5', icon: '🔥', name: 'В ударе (5)' },
+      { id: 'berserk_10', icon: '💀', name: 'Берсерк (10)' },
+      { id: 'killer_25', icon: '⚔️', name: 'Ветеран (25)' },
+      { id: 'tank_ace', icon: '🛡️', name: 'Броня (3)' },
+      { id: 'jet_ace', icon: '🚀', name: 'Ас (3)' }
+    ];
+
+    function updateProfileUI() {
+      const xp = Number(localStorage.getItem('neon_xp') || 0);
+      const totalKills = Number(localStorage.getItem('neon_total_kills') || 0);
+      const bestKills = Number(localStorage.getItem('neon_best_kills') || 0);
+      const unlocked = JSON.parse(localStorage.getItem('neon_ach') || '[]');
+
+      const lvl = Math.floor(xp / 100) + 1;
+      const curXp = xp % 100;
+      const titles = ['Новичок', 'Боец', 'Охотник', 'Кибер-Воин', 'Гладиатор', 'Кибер-Легенда'];
+      const rankTitle = titles[Math.min(titles.length - 1, Math.floor((lvl - 1) / 2))];
+
+      document.getElementById('playerRank').textContent = '🎖️ Уровень ' + lvl + ' • ' + rankTitle;
+      document.getElementById('playerXpText').textContent = curXp + ' / 100 XP';
+      document.getElementById('playerXpBar').style.width = curXp + '%';
+      document.getElementById('playerRecords').textContent = '💀 Всего киллов: ' + totalKills + ' • 🏆 Рекорд за бой: ' + bestKills;
+
+      document.getElementById('achContainer').innerHTML = ACHIEVEMENTS.map(a => {
+        const isOpen = unlocked.includes(a.id);
+        return '<span style="font-size:0.72rem; padding:3px 8px; border-radius:8px; border:1px solid ' +
+          (isOpen ? '#facc15; background:rgba(250,204,21,0.18); color:#fff;' : '#334155; color:#64748b; opacity:0.5;') + '">' +
+          a.icon + ' ' + a.name + '</span>';
+      }).join('');
+    }
+    const savedNick = localStorage.getItem('neon_nick');
+    if (savedNick) document.getElementById('nameInput').value = savedNick;
+    document.getElementById('nameInput').addEventListener('input', e => {
+      localStorage.setItem('neon_nick', e.target.value);
+    });
+    updateProfileUI();
+
+    document.querySelectorAll('.color-dot').forEach(dot => {
+      dot.onclick = () => {
+        document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+        dot.classList.add('active');
+        selectedColor = dot.dataset.color;
+      };
+    });
+
+    document.querySelectorAll('.hull-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.hull-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedHull = btn.dataset.hull;
+      };
+    });
+
+    function showBannerToast(text, isGold = false) {
+      const toast = document.getElementById('achToast');
+      if (!toast) return;
+      toast.textContent = text;
+      toast.style.background = isGold ? 'linear-gradient(135deg,#facc15,#fb923c)' : 'linear-gradient(135deg,#00f0ff,#3b82f6)';
+      toast.style.display = 'block';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+
+    const input = { up: false, down: false, left: false, right: false, shooting: false, angle: 0 };
+
+    window.addEventListener('keydown', e => {
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') input.up = true;
+      if (e.code === 'KeyS' || e.code === 'ArrowDown') input.down = true;
+      if (e.code === 'KeyA' || e.code === 'ArrowLeft') input.left = true;
+      if (e.code === 'KeyD' || e.code === 'ArrowRight') input.right = true;
+      if (e.code === 'Space' && myId) { socket.emit('dash'); playTone(520, 0.14, 'triangle', 0.08); }
+    });
+
+    window.addEventListener('keyup', e => {
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') input.up = false;
+      if (e.code === 'KeyS' || e.code === 'ArrowDown') input.down = false;
+      if (e.code === 'KeyA' || e.code === 'ArrowLeft') input.left = false;
+      if (e.code === 'KeyD' || e.code === 'ArrowRight') input.right = false;
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (document.pointerLockElement === canvas) {
+        mouse.x = Math.max(20, Math.min(canvas.width - 20, mouse.x + e.movementX));
+        mouse.y = Math.max(20, Math.min(canvas.height - 20, mouse.y + e.movementY));
+      } else {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      }
+      input.angle = Math.atan2(mouse.y - canvas.height / 2, mouse.x - canvas.width / 2);
+    });
+
+    canvas.addEventListener('mousedown', () => {
+      if (!myId) return;
+      if (document.pointerLockElement !== canvas) canvas.requestPointerLock?.();
+      input.shooting = true;
+      socket.emit('shoot');
+      playLaserZap();
+      clearInterval(laserSoundTimer);
+      laserSoundTimer = setInterval(() => { if (input.shooting && myId) playLaserZap(); }, 180);
+    });
+
+    window.addEventListener('mouseup', () => {
+      input.shooting = false;
+      clearInterval(laserSoundTimer);
+    });
+
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (isTouchDevice) {
+      document.getElementById('stickLeft').style.display = 'block';
+      document.getElementById('stickRight').style.display = 'block';
+      document.getElementById('touchDashBtn').style.display = 'block';
+    }
+
+    function setupJoystick(zoneId, knobId, onMove, onEnd) {
+      const zone = document.getElementById(zoneId);
+      const knob = document.getElementById(knobId);
+      zone.addEventListener('touchstart', e => { e.preventDefault(); handleTouch(e.targetTouches); }, { passive: false });
+      zone.addEventListener('touchmove', e => { e.preventDefault(); handleTouch(e.targetTouches); }, { passive: false });
+      zone.addEventListener('touchend', e => {
+        e.preventDefault();
+        knob.style.transform = 'translate(0px, 0px)';
+        onEnd();
+      });
+      function handleTouch(t) {
+        if (!t) return;
+        const rect = zone.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        let dx = t.clientX - cx;
+        let dy = t.clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        const maxR = 45;
+        if (dist > maxR) { dx = (dx / dist) * maxR; dy = (dy / dist) * maxR; }
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+        onMove(dx / maxR, dy / maxR);
+      }
+    }
+
+    setupJoystick('stickLeft', 'knobLeft', (nx, ny) => {
+      input.left = nx < -0.25; input.right = nx > 0.25;
+      input.up = ny < -0.25; input.down = ny > 0.25;
+    }, () => { input.up = input.down = input.left = input.right = false; });
+
+    setupJoystick('stickRight', 'knobRight', (nx, ny) => {
+      if (Math.hypot(nx, ny) > 0.15) {
+        input.angle = Math.atan2(ny, nx);
+        mouse.x = canvas.width / 2 + Math.cos(input.angle) * 140;
+        mouse.y = canvas.height / 2 + Math.sin(input.angle) * 140;
+        input.shooting = true;
+      }
+    }, () => { input.shooting = false; });
+
+    document.getElementById('touchDashBtn').addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (myId) { socket.emit('dash'); playTone(520, 0.14, 'triangle', 0.08); }
+    });
+
+    setInterval(() => { if (myId) socket.emit('input', input); }, 1000 / 60);
+    let currentLobbyCode = null;
+
+    function openLobbyWindow(code, hostId, members) {
+      currentLobbyCode = code;
+      document.getElementById('lobbyCodeDisplay').textContent = code;
+      document.getElementById('startOverlay').classList.add('hidden');
+      document.getElementById('lobbyOverlay').classList.remove('hidden');
+
+      const isHost = (hostId === socket.id);
+      document.getElementById('lobbyHostControls').style.display = isHost ? 'flex' : 'none';
+      document.getElementById('lobbyWaitText').style.display = isHost ? 'none' : 'block';
+
+      document.getElementById('lobbyMembersList').innerHTML = (members || []).map(m =>
+        '<div style="padding:5px 8px; font-weight:bold; color:' + m.color + ';">' +
+        (m.id === hostId ? '👑 ' : '🎮 ') + m.name + (m.id === socket.id ? ' (Вы)' : '') +
+        '</div>'
+      ).join('');
+    }
+
+    function createFriendLobby() {
+      const name = (document.getElementById('nameInput').value || '').trim() || 'Хост';
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      openLobbyWindow(code, socket.id, [{ id: socket.id, name, color: selectedColor }]);
+      socket.emit('create_lobby', { name, color: selectedColor, hull: selectedHull, presetCode: code });
+    }
+
+    function joinFriendLobby(presetCode) {
+      const code = (presetCode || document.getElementById('roomCodeInput').value || '').trim();
+      if (!code) { showBannerToast('⚠️ Введи 4-значный код комнаты!', true); return; }
+      const name = (document.getElementById('nameInput').value || '').trim() || 'Игрок';
+      socket.emit('join_lobby', { code, name, color: selectedColor, hull: selectedHull });
+    }
+
+    function leaveFriendLobby() {
+      socket.emit('leave_lobby');
+      currentLobbyCode = null;
+      document.getElementById('lobbyOverlay').classList.add('hidden');
+      document.getElementById('startOverlay').classList.remove('hidden');
+    }
+
+    function copyInviteLink() {
+      if (!currentLobbyCode) return;
+      const url = window.location.origin + '/?room=' + currentLobbyCode;
+      navigator.clipboard?.writeText(url);
+      showBannerToast('📋 Ссылка скопирована: ' + url, true);
+    }
+
+    function startLobbyGame(mode) {
+      currentMode = mode;
+      socket.emit('start_lobby_match', { mode });
+    }
+
+    socket.on('lobby_error', msg => { showBannerToast('❌ ' + msg, true); });
+    socket.on('lobby_update', ({ code, hostId, members }) => { openLobbyWindow(code, hostId, members); });
+
+    const urlRoom = new URLSearchParams(window.location.search).get('room');
+    if (urlRoom) {
+      document.getElementById('roomCodeInput').value = urlRoom;
+      setTimeout(() => joinFriendLobby(urlRoom), 400);
+    }
+
+        function joinArena(mode) {
+      if (currentLobbyCode && !mode) {
+        document.getElementById('deathOverlay').classList.add('hidden');
+        document.getElementById('lobbyOverlay').classList.remove('hidden');
+        return;
+      }
+      if (mode) currentMode = mode;
+      if (!musicOn) toggleMusic();
+      if (!isTouchDevice) canvas.requestPointerLock?.();
+      const name = document.getElementById('nameInput').value;
+      socket.emit('spawn', { name, color: selectedColor, hull: selectedHull, isFreshStart: isFreshSession, mode: currentMode });
+      isFreshSession = false;
+    }
+
+
+       function backToMenu() {
+      if (musicOn) toggleMusic();
+      isFreshSession = true;
+      if (currentLobbyCode) {
+        socket.emit('leave_lobby');
+        currentLobbyCode = null;
+      }
+      socket.emit('leave_arena');
+      document.getElementById('hudLeaderboard').style.display = 'none';
+
+      document.getElementById('hudZone').style.display = 'none';
+      document.getElementById('hudBottom').style.display = 'none';
+      document.getElementById('exitMatchBtn').style.display = 'none';
+      document.getElementById('deathOverlay').classList.add('hidden');
+      document.getElementById('startOverlay').classList.remove('hidden');
+      updateProfileUI();
+    }
+
+    function exitActiveMatch() {
+      document.exitPointerLock?.();
+      myId = null;
+      input.shooting = false;
+      clearInterval(laserSoundTimer);
+      backToMenu();
+    }
+
+    socket.on('spawned', ({ id }) => {
+      myId = id;
+      document.getElementById('lobbyOverlay').classList.add('hidden');
+      document.getElementById('startOverlay').classList.add('hidden');
+      document.getElementById('deathOverlay').classList.add('hidden');
+      document.getElementById('hudLeaderboard').style.display = 'block';
+      document.getElementById('hudZone').style.display = 'block';
+      document.getElementById('hudBottom').style.display = 'flex';
+      document.getElementById('exitMatchBtn').style.display = 'block';
+    });
+
+    socket.on('buff_picked', label => { playTone(760, 0.2, 'triangle', 0.12); showBannerToast(label, label.includes('🎁')); });
+    socket.on('airdrop_alert', msg => { if (myId) { playTone(440, 0.3, 'sawtooth', 0.08); showBannerToast(msg, true); } });
+    socket.on('life_lost', ({ livesLeft }) => { screenShake = 16; playTone(180, 0.3, 'sawtooth', 0.14); showBannerToast('💔 ПОТЕРЯНА ЖИЗНЬ! Осталось: ' + '❤️'.repeat(livesLeft), true); });
+    socket.on('match_finished', ({ top3, totalKills, isRoyale }) => {
+      document.exitPointerLock?.();
+      myId = null;
+      input.shooting = false;
+      clearInterval(laserSoundTimer);
+      document.getElementById('exitMatchBtn').style.display = 'none';
+      playTone(880, 0.4, 'triangle', 0.15);
+
+      const myNick = (document.getElementById('nameInput').value || '').trim();
+      const myPlaceIdx = top3.findIndex(p => p.name === myNick);
+      let bonusText = '';
+      if (myPlaceIdx !== -1) {
+        const bonus = myPlaceIdx === 0 ? 300 : (myPlaceIdx === 1 ? 150 : 75);
+        const prevXp = Number(localStorage.getItem('neon_xp') || 0);
+        localStorage.setItem('neon_xp', prevXp + bonus);
+        updateProfileUI();
+        bonusText = ' (Твоя награда: +' + bonus + ' XP!)';
+      }
+
+            const titleEl = document.querySelector('#deathOverlay h2');
+      if (titleEl) {
+        if (isRoyale) {
+          titleEl.textContent = (myPlaceIdx === 0) ? '🏆 ТЫ ЧЕМПИОН!' : '🏁 ТУРНИР ЗАВЕРШЁН!';
+        } else {
+          titleEl.textContent = '🏁 РАУНД ЗАВЕРШЁН!';
+        }
+        titleEl.style.color = '#facc15';
+      }
+
+
+      const medals = ['🥇 1 МЕСТО:', '🥈 2 МЕСТО:', '🥉 3 МЕСТО:'];
+      const list = top3.map((p, i) => medals[i] + ' ' + p.name + ' (' + p.kills + ' 💀)').join('  |  ');
+      document.getElementById('deathStats').textContent = list + bonusText;
+      document.getElementById('deathOverlay').classList.remove('hidden');
+    });
+
+    socket.on('you_died', ({ kills, mode, place }) => {
+      document.exitPointerLock?.();
+      const prevXp = Number(localStorage.getItem('neon_xp') || 0);
+      const totalKills = Number(localStorage.getItem('neon_total_kills') || 0) + kills;
+      const bestKills = Math.max(Number(localStorage.getItem('neon_best_kills') || 0), kills);
+      const unlocked = new Set(JSON.parse(localStorage.getItem('neon_ach') || '[]'));
+
+      if (kills >= 1) unlocked.add('first_blood');
+      if (kills >= 5) unlocked.add('rampage_5');
+      if (kills >= 10) unlocked.add('berserk_10');
+      if (totalKills >= 25) unlocked.add('killer_25');
+      if (kills >= 3 && selectedHull === 'hex') unlocked.add('tank_ace');
+      if (kills >= 3 && selectedHull === 'triangle') unlocked.add('jet_ace');
+
+      localStorage.setItem('neon_xp', prevXp + kills * 25);
+      localStorage.setItem('neon_total_kills', totalKills);
+      localStorage.setItem('neon_best_kills', bestKills);
+      localStorage.setItem('neon_ach', JSON.stringify([...unlocked]));
+      updateProfileUI();
+
+      myId = null;
+      input.shooting = false;
+      clearInterval(laserSoundTimer);
+      document.getElementById('exitMatchBtn').style.display = 'none';
+      screenShake = 18;
+      playTone(120, 0.4, 'sawtooth', 0.15);
+
+      const titleEl = document.querySelector('#deathOverlay h2');
+      if (titleEl) {
+        titleEl.textContent = 'ТЕБЯ ВЫБИЛИ!';
+        titleEl.style.color = '#ff2a85';
+      }
+
+      if (mode === 'royale') {
+        document.getElementById('deathStats').textContent = '🏆 ТУРНИР ОКОНЧЕН! Твоё место: #' + (place || '?') + ' • Киллов: ' + kills + ' (+' + (kills * 25) + ' XP)';
+      } else {
+        document.getElementById('deathStats').textContent = 'Ты сделал ' + kills + ' киллов (+' + (kills * 25) + ' XP)!';
+      }
+      document.getElementById('deathOverlay').classList.remove('hidden');
+    });
+
+    socket.on('kill_feed', ({ killer, victim }) => {
+      const feed = document.getElementById('killFeed');
+      const div = document.createElement('div');
+      div.className = 'kill-msg';
+      div.textContent = '⚡ ' + killer + ' выбил ' + victim;
+      feed.prepend(div);
+      setTimeout(() => div.remove(), 4000);
+    });
+
+    socket.on('fx_event', ({ type, x, y, color }) => {
+      const count = type === 'explosion' ? 26 : (type === 'dash' ? 14 : 8);
+      if (type === 'explosion') screenShake = Math.max(screenShake, 12);
+      for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = (type === 'explosion' ? 2 + Math.random() * 7 : 1 + Math.random() * 4);
+        particles.push({
+          x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+          life: 25 + Math.random() * 15, maxLife: 40, color: color || '#00f0ff',
+          size: type === 'explosion' ? 5 : 3.5
+        });
+      }
+    });
+
+    socket.on('arena_state', state => {
+      gameState = state;
+      document.getElementById('zoneTimerText').textContent = state.zoneSec;
+      const zStatus = document.getElementById('zoneStatusText');
+      if (zStatus) {
+        if (state.mode === 'royale' || state.mode.startsWith('custom_')) {
+          zStatus.textContent = '🏆 ЖИВЫХ: ' + state.players.length + ' • СУЖЕНИЕ';
+          zStatus.style.color = '#facc15';
+        } else {
+          const isShrinking = state.safeZone.targetRadius < 700;
+          zStatus.textContent = isShrinking ? 'СЖАТИЕ АРЕНЫ!' : 'ДО ПУЛЬСА ЗОНЫ';
+          zStatus.style.color = isShrinking ? '#ff2a85' : '#00f0ff';
+        }
+      }
+
+      const sorted = [...state.players].sort((a, b) => (b.lives - a.lives) || (b.kills - a.kills)).slice(0, 8);
+      document.getElementById('lbList').innerHTML = sorted.map((p, i) => {
+        const rightStat = p.lives > 1 || state.mode === 'royale' ? ('❤️'.repeat(p.lives || 0)) : (p.kills + ' 💀');
+        return '<div class="lb-row" style="color:' + p.color + '"><span>' + (i + 1) + '. ' + p.name + '</span><span>' + rightStat + '</span></div>';
+      }).join('');
+
+      const me = state.players.find(p => p.id === myId);
+      if (me) {
+        document.getElementById('hudHp').textContent = '❤️ ' + me.hp + ' HP';
+        document.getElementById('hudDash').textContent = me.dashReady ? '⚡ РЫВОК ГОТОВ' : '⏳ ПЕРЕЗАРЯДКА';
+        document.getElementById('hudDash').style.color = me.dashReady ? '#00f0ff' : '#64748b';
+        document.getElementById('hudKills').textContent = me.lives > 1 || state.mode === 'royale'
+          ? ('❤️'.repeat(me.lives || 0) + ' • 💀 ' + me.kills)
+          : ('💀 ' + me.kills + ' КИЛЛОВ');
+
+        const unlocked = new Set(JSON.parse(localStorage.getItem('neon_ach') || '[]'));
+        const totalKillsNow = Number(localStorage.getItem('neon_total_kills') || 0) + me.kills;
+        const checks = [
+          { cond: me.kills >= 1, id: 'first_blood', label: '🩸 Первая кровь!' },
+          { cond: me.kills >= 5, id: 'rampage_5', label: '🔥 В ударе (5 киллов)!' },
+          { cond: me.kills >= 10, id: 'berserk_10', label: '💀 Берсерк (10 киллов)!' },
+          { cond: totalKillsNow >= 25, id: 'killer_25', label: '⚔️ Ветеран (25 киллов)!' },
+          { cond: me.kills >= 3 && selectedHull === 'hex', id: 'tank_ace', label: '🛡️ Броня (3 килла на Танке)!' },
+          { cond: me.kills >= 3 && selectedHull === 'triangle', id: 'jet_ace', label: '🚀 Пилот-ас (3 килла на Истребителе)!' }
+        ];
+        checks.forEach(c => {
+          if (c.cond && !unlocked.has(c.id)) {
+            unlocked.add(c.id);
+            localStorage.setItem('neon_ach', JSON.stringify([...unlocked]));
+            playTone(880, 0.25, 'triangle', 0.12);
+            showBannerToast('🏅 АЧИВКА ОТКРЫТА: ' + c.label, true);
+          }
+        });
+      }
+    });
+    function render() {
+      ctx.fillStyle = '#060812';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (gameState) {
+        const me = gameState.players.find(p => p.id === myId) || { x: 800, y: 800 };
+        let shakeX = 0, shakeY = 0;
+        if (screenShake > 0) {
+          shakeX = (Math.random() - 0.5) * screenShake;
+          shakeY = (Math.random() - 0.5) * screenShake;
+          screenShake *= 0.85;
+        }
+
+        const camX = canvas.width / 2 - me.x + shakeX;
+        const camY = canvas.height / 2 - me.y + shakeY;
+
+        ctx.save();
+        ctx.translate(camX, camY);
+
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= gameState.arenaSize; x += 80) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, gameState.arenaSize); ctx.stroke();
+        }
+        for (let y = 0; y <= gameState.arenaSize; y += 80) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(gameState.arenaSize, y); ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.arc(gameState.safeZone.x, gameState.safeZone.y, gameState.safeZone.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = gameState.mode === 'royale' ? '#facc15' : '#ff2a85';
+        ctx.lineWidth = 5;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = gameState.mode === 'royale' ? '#facc15' : '#ff2a85';
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        (gameState.obstacles || []).forEach(ob => {
+          ctx.beginPath();
+          ctx.arc(ob.x, ob.y, ob.r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+          ctx.fill();
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = '#00f0ff';
+          ctx.shadowBlur = 16;
+          ctx.shadowColor = '#00f0ff';
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        });
+
+        gameState.powerups.forEach(pw => {
+          const isGift = pw.type === 'mystery';
+          const bg = pw.type === 'heal' ? '#22c55e' : (pw.type === 'triple' ? '#facc15' : (pw.type === 'shield' ? '#38bdf8' : (pw.type === 'speed' ? '#a855f7' : '#fb923c')));
+          const icon = pw.type === 'heal' ? '❤️' : (pw.type === 'triple' ? '+3' : (pw.type === 'shield' ? '🛡️' : (pw.type === 'speed' ? '⚡' : '🎁')));
+
+          ctx.beginPath();
+          ctx.arc(pw.x, pw.y, isGift ? 22 : 17, 0, Math.PI * 2);
+          ctx.fillStyle = bg;
+          ctx.shadowBlur = isGift ? 25 : 14;
+          ctx.shadowColor = bg;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          ctx.fillStyle = pw.type === 'triple' ? '#050816' : '#ffffff';
+          ctx.font = isGift ? 'bold 20px sans-serif' : 'bold 15px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(icon, pw.x, pw.y + 6);
+        });
+
+        if (gameState.airDropPlane) {
+          const pl = gameState.airDropPlane;
+          ctx.save();
+          ctx.translate(pl.x, pl.y);
+          if (pl.vx < 0) ctx.scale(-1, 1);
+          ctx.fillStyle = 'rgba(250, 204, 21, 0.9)';
+          ctx.shadowBlur = 25;
+          ctx.shadowColor = '#facc15';
+          ctx.beginPath();
+          ctx.moveTo(55, 0); ctx.lineTo(-40, -45); ctx.lineTo(-20, 0); ctx.lineTo(-40, 45);
+          ctx.closePath();
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        }
+
+        gameState.bullets.forEach(b => {
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
+          ctx.fillStyle = b.color;
+          ctx.shadowBlur = 12;
+          ctx.shadowColor = b.color;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        });
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const pt = particles[i];
+          pt.x += pt.vx; pt.y += pt.vy; pt.life--;
+          if (pt.life <= 0) { particles.splice(i, 1); continue; }
+          ctx.globalAlpha = pt.life / pt.maxLife;
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        gameState.players.forEach(p => {
+          const isMe = p.id === myId;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+
+          if (p.shield || p.godMode) {
+            ctx.beginPath();
+            ctx.arc(0, 0, 31, 0, Math.PI * 2);
+            ctx.strokeStyle = p.godMode ? '#facc15' : '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
+
+          ctx.save();
+          ctx.rotate(p.angle);
+          ctx.fillStyle = p.color;
+          ctx.shadowBlur = isMe ? 24 : 14;
+          ctx.shadowColor = p.color;
+
+          ctx.beginPath();
+          if (p.hull === 'triangle') {
+            ctx.moveTo(26, 0); ctx.lineTo(-18, -18); ctx.lineTo(-10, 0); ctx.lineTo(-18, 18); ctx.closePath();
+          } else if (p.hull === 'hex') {
+            for (let k = 0; k < 6; k++) {
+              const a = (Math.PI / 3) * k;
+              k === 0 ? ctx.moveTo(Math.cos(a) * 24, Math.sin(a) * 24) : ctx.lineTo(Math.cos(a) * 24, Math.sin(a) * 24);
+            }
+            ctx.closePath();
+          } else {
+            ctx.arc(0, 0, 21, 0, Math.PI * 2);
+          }
+          ctx.fill();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(10, -4, 18, 8);
+          ctx.restore();
+          ctx.shadowBlur = 0;
+
+          const doms = gameState.dominations || [];
+          const isDemon = (p.streak || 0) >= 3;
+          const isAnyDominator = doms.some(d => d.dom === p.name);
+          const isAnyVictim = doms.some(d => d.vic === p.name);
+
+          let badgePrefix = isDemon ? '😈 ' : '';
+          let statusTag = '';
+          if (isAnyDominator) statusTag += ' 👑 ДОМИНАТОР';
+          if (isAnyVictim) statusTag += ' 🎯 ЖЕРТВА';
+
+          ctx.fillStyle = isAnyDominator ? '#ff2a85' : (isAnyVictim ? '#facc15' : (isMe ? '#00f0ff' : '#ffffff'));
+          ctx.font = (isMe || isAnyDominator || isAnyVictim) ? '900 14px sans-serif' : 'bold 12px sans-serif';
+          ctx.textAlign = 'center';
+          const hearts = p.lives > 1 || gameState.mode === 'royale' ? (' ' + '❤️'.repeat(p.lives || 0)) : '';
+                    const isBotPlayer = String(p.id || '').startsWith('bot_');
+          const friendTag = (!isMe && !isBotPlayer) ? '👥 ДРУГ • ' : '';
+          if (!isMe && !isBotPlayer) ctx.fillStyle = '#22c55e';
+          const label = isMe
+            ? (badgePrefix + '▼ ВЫ (' + p.name + ')' + hearts + statusTag)
+            : (friendTag + badgePrefix + p.name + hearts + statusTag);
+          ctx.fillText(label, 0, -42);
+
+
+          const hpRatio = Math.max(0, p.hp / p.maxHp);
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(-24, -34, 48, 5);
+          ctx.fillStyle = hpRatio > 0.4 ? '#22c55e' : '#ef4444';
+          ctx.fillRect(-24, -34, 48 * hpRatio, 5);
+
+          ctx.restore();
+        });
+
+        ctx.restore();
+      }
+
+      if (myId) {
+        ctx.save();
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(mouse.x, mouse.y, 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(mouse.x - 18, mouse.y); ctx.lineTo(mouse.x - 6, mouse.y);
+        ctx.moveTo(mouse.x + 6, mouse.y); ctx.lineTo(mouse.x + 18, mouse.y);
+        ctx.moveTo(mouse.x, mouse.y - 18); ctx.lineTo(mouse.x, mouse.y - 6);
+        ctx.moveTo(mouse.x, mouse.y + 6); ctx.lineTo(mouse.x, mouse.y + 18);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+            requestAnimationFrame(render);
+    }
+    render();
+
+    document.getElementById('createRoomBtn').addEventListener('click', () => {
+      const name = (document.getElementById('nameInput').value || '').trim() || 'Хост';
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      currentLobbyCode = code;
+      document.getElementById('lobbyCodeDisplay').textContent = code;
+      document.getElementById('startOverlay').classList.add('hidden');
+      document.getElementById('lobbyOverlay').classList.remove('hidden');
+      document.getElementById('lobbyHostControls').style.display = 'flex';
+      document.getElementById('lobbyWaitText').style.display = 'none';
+           document.getElementById('lobbyMembersList').innerHTML =
+        '<div style="padding:5px 8px; font-weight:bold; color:' + selectedColor + ';">👑 ' + name + ' (Вы)</div>';
+      socket.emit('create_lobby', { name, color: selectedColor, hull: selectedHull, presetCode: code });
+    });
+
+        document.getElementById('joinRoomBtn').addEventListener('click', () => {
+      const code = (document.getElementById('roomCodeInput').value || '').trim();
+      if (!code) { showBannerToast('⚠️ Введи 4-значный код комнаты!', true); return; }
+      const name = (document.getElementById('nameInput').value || '').trim() || 'Игрок';
+      socket.emit('join_lobby', { code, name, color: selectedColor, hull: selectedHull });
+    });
+
+    document.getElementById('copyInviteBtn').addEventListener('click', () => {
+      if (!currentLobbyCode) return;
+      const url = window.location.origin + '/?room=' + currentLobbyCode;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).catch(() => {});
+      }
+      showBannerToast('📋 Ссылка скопирована: ' + url, true);
+    });
+
+    document.getElementById('leaveLobbyBtn').addEventListener('click', () => {
+      socket.emit('leave_lobby');
+      currentLobbyCode = null;
+      document.getElementById('lobbyOverlay').classList.add('hidden');
+      document.getElementById('startOverlay').classList.remove('hidden');
+    });
+
+    document.getElementById('startLobbyArenaBtn').addEventListener('click', () => {
+      currentMode = 'arena';
+      socket.emit('start_lobby_match', { mode: 'arena' });
+    });
+
+    document.getElementById('startLobbyRoyaleBtn').addEventListener('click', () => {
+      currentMode = 'royale';
+      socket.emit('start_lobby_match', { mode: 'royale' });
+    });
+  </script>
+</body>
+</html>
+
